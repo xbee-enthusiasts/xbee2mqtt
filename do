@@ -11,7 +11,7 @@ fi
 case "$ACTION" in
 
     "activate")
-        . venv/bin/activate
+        . $FOLDER/bin/activate
         ;;
 
     "deactivate")
@@ -49,7 +49,7 @@ case "$ACTION" in
 
     "tests")
         source $FOLDER/bin/activate
-        .venv/bin/nosetests
+        $FOLDER/bin/nosetests
         ;;
 
     *)

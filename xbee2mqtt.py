@@ -67,6 +67,7 @@ class Xbee2MQTT(Daemon):
             for port, topic in ports.iteritems():
                 self._routes[(address, port)] = topic
                 self._actions['%s/set' % topic] = (address, port)
+        self.log(logging.DEBUG, "Routes: %s" % self._routes)
 
     def log(self, level, message):
         if self.logger:
@@ -108,7 +109,7 @@ class Xbee2MQTT(Daemon):
             self.default_topic_pattern.format(address=address, port=port) if self.publish_undefined_topics else False
         )
         if topic:
-
+            self.log(logging.DEBUG, "Topic found.")
             now = time.time()
             if topic in self._topics.keys() \
                 and self._topics[topic]['time'] + self.duplicate_check_window > now \
@@ -162,7 +163,7 @@ if __name__ == "__main__":
     handler.setFormatter(formatter)
 
     logger = logging.getLogger()
-    logger.setLevel(config.get('daemon', 'logging_level', logging.INFO))
+    logger.setLevel(config.get('general', 'logging_level', logging.DEBUG))
     logger.addHandler(handler)
 
     mqtt = MosquittoWrapper(config.get('mqtt', 'client_id', None))

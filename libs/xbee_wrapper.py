@@ -28,7 +28,7 @@ import re
 import glob
 import binascii
 import logging
-from xbee import XBee
+from xbee import ZigBee
 
 class XBeeWrapper(object):
     """
@@ -63,7 +63,7 @@ class XBeeWrapper(object):
         """
         try:
             self.log(logging.INFO, "Connecting to Xbee")
-            self.xbee = XBee(self.serial, callback=self.process)
+            self.xbee = ZigBee(self.serial, callback=self.process)
         except:
             return False
         return True
@@ -77,8 +77,11 @@ class XBeeWrapper(object):
 
         self.log(logging.DEBUG, packet)
 
-        address = packet['source_addr_long']
-        frame_id = int(packet['frame_id'])
+        address = binascii.hexlify(packet['source_addr_long'])
+        #frame_id = int(packet['frame_id'])
+        id = packet['id']
+        if(id == "rx_io_data_long_addr"):
+            frame_id = 92
 
         # Data sent through the serial connection of the remote radio
         if (frame_id == 90):
@@ -104,10 +107,13 @@ class XBeeWrapper(object):
 
         # Data received from an IO data sample
         if (frame_id == 92):
-            for port, value in packet['samples'].iteritems():
-                if port[:3] == 'dio':
-                    value = 1 if value else 0
-                self.on_message(address, port, value)
+            for sample in packet['samples']:
+                self.log(logging.DEBUG, sample)
+                for port in sample.keys():
+                    value = sample[port]
+                    if port[:3] == 'dio':
+                        value = 1 if value else 0
+                    self.on_message(address, port, value)
 
     def on_message(self, address, port, value):
         """
