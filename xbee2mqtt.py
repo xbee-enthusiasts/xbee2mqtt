@@ -67,6 +67,7 @@ class Xbee2MQTT(Daemon):
             for port, topic in ports.iteritems():
                 self._routes[(address, port)] = topic
                 self._actions['%s/set' % topic] = (address, port)
+                self._actions['%s/toggle' % topic] = (address, port)
         self.log(logging.DEBUG, "Routes: %s" % self._routes)
 
     def log(self, level, message):
@@ -92,11 +93,24 @@ class Xbee2MQTT(Daemon):
         data = self._actions.get(topic, None)
         if data:
             address, port = data
-            self.log(logging.INFO, "Setting radio %s port %s to %s" % (address, port, message))
-            try:
-                self.xbee.send_message(address, port, message)
-            except Exception as e:
-                self.log(logging.ERROR, "Error while sending message (%e)" % e)
+            if topic.endswith("/set"): 
+                self.log(logging.INFO, "Setting radio %s port %s to %s" % (address, port, message))
+                try:
+                    retval = self.xbee.send_message(address, port, message, False)
+                    self.log(logging.DEBUG, "xbee.send_message retval %s"  % retval)
+                except Exception as e:
+                    self.log(logging.ERROR, "Error while sending message (%e)" % e)
+            elif topic.endswith("/toggle"):
+                self.log(logging.INFO, "Toggling radio %s port %s" % (address, port))
+                try:
+                    sleep_interval = .25
+                    retval = self.xbee.send_message(address, port, 1, False)
+                    self.log(logging.DEBUG, "toggle step 1, xbee.send_message retval %s, sleeping %f secs"  % retval, sleep_interval)
+                    time.sleep(sleep_interval)
+                    retval = self.xbee.send_message(address, port, 0, False)
+                    self.log(logging.DEBUG, "toggle step 2, xbee.send_message retval %s"  % retval)
+                except Exception as e:
+                    self.log(logging.ERROR, "Error while sending message (%e)" % e)
 
 
     def xbee_on_message(self, address, port, value):
