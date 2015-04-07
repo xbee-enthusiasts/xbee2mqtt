@@ -22,7 +22,8 @@ __contact__ = "xose.perez@gmail.com"
 __copyright__ = "Copyright (C) 2013 Xose Pérez"
 __license__ = 'GPL v3'
 
-from mosquitto import Mosquitto
+#from mosquitto import Mosquitto
+import paho.mqtt.client as paho
 import ctypes
 import time
 import logging
@@ -31,13 +32,16 @@ import logging
 MSG_CONNECTED = 1
 MSG_DISCONNECTED = 2
 
-class MosquittoWrapper(Mosquitto):
+class MosquittoWrapper(paho.Client):
     """
-    Wrapper for the official Mosquitto client that allows injection and easy mocking
+    Wrapper for the official paho mqtt client that allows injection and easy mocking
     """
 
     host = 'localhost'
     port = 1883
+    username = None
+    password = None
+
     keepalive = 60
     qos = 0
     retain = False
@@ -59,17 +63,20 @@ class MosquittoWrapper(Mosquitto):
 
     def connect(self):
         """
-        Connects to the Mosquitto broker with the pre-configured parameters
+        Connects to the MQTT broker with the pre-configured parameters
         """
         self.on_connect = self._on_connect
         self.on_message = self._on_message
         self.on_disconnect = self._on_disconnect
         self.on_subscribe = self._on_subscribe
         self.on_log = self._on_log
+        if self.username:
+            self.username_pw_set(self.username, self.password)
+
         if self.set_will:
             self.will_set(self.status_topic % self._client_id, "0", self.qos, self.retain)
         self.log(logging.INFO, "Connecting to MQTT broker")
-        Mosquitto.connect(self, self.host, self.port, self.keepalive)
+        paho.Client.connect(self, self.host, self.port, self.keepalive)
 
     def subscribe(self, topics):
         """
@@ -78,7 +85,7 @@ class MosquittoWrapper(Mosquitto):
         if not isinstance(topics, list):
             topics = [topics]
         for topic in topics:
-            rc, mid = Mosquitto.subscribe(self, topic, 0)
+            rc, mid = paho.Client.subscribe(self, topic, 0)
             self._subscriptions[mid] = topic
             self.log(logging.INFO, "Sent subscription request to topic %s" % topic)
 
@@ -88,9 +95,9 @@ class MosquittoWrapper(Mosquitto):
         """
         qos = qos if qos is not None else self.qos
         retain = retain if retain is not None else self.retain
-        Mosquitto.publish(self, topic, str(value), qos, retain)
+        paho.Client.publish(self, topic, str(value), qos, retain)
 
-    def _on_connect(self, mosq, obj, rc):
+    def _on_connect(self, mosq, obj, flags, rc):
         """
         Callback when connection to the MQTT broker has succedeed or failed
         """
@@ -145,13 +152,14 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
-    mqtt = MosquittoWrapper('mosquitto_test_client_2')
-    mqtt.subscribe_to = ['/test']
-    mqtt.logger = logger
-    mqtt.connect()
+    me = MosquittoWrapper('mosquitto_test_client_2')
+    me.subscribe_to = ['/test']
+    me.logger = logger
+
+    me.connect()
 
     rc = 0
     while rc == 0:
-        rc = mqtt.loop()
+        rc = me.loop()
     print("rc: "+str(rc))
 
