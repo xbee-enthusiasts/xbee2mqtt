@@ -103,13 +103,8 @@ class Xbee2MQTT(Daemon):
             elif topic.endswith("/toggle"):
                 self.log(logging.INFO, "Toggling radio %s port %s" % (address, port))
                 try:
-                    sleep_interval = .25
-                    retval = self.xbee.send_message(address, port, 1, False)
-                    #self.log(logging.DEBUG, "toggle step 1, xbee.send_message retval %s, sleeping %f secs"  % retval, sleep_interval)
-                    self.log(logging.DEBUG, "toggle step 1, xbee.send_message retval %s"  % retval)
-                    time.sleep(sleep_interval)
-                    retval = self.xbee.send_message(address, port, 0, False)
-                    self.log(logging.DEBUG, "toggle step 2, xbee.send_message retval %s"  % retval)
+                    self.log(logging.DEBUG, "Toggling port %s on radio %s"  % (port, address))
+                    retval = self.toggle_port(address, port)
                 except Exception as e:
                     self.log(logging.ERROR, "Error while sending message (%e)" % e)
 

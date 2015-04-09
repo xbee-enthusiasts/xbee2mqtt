@@ -28,6 +28,7 @@ import re
 import glob
 import binascii
 import logging
+import time
 from xbee import ZigBee
 
 class XBeeWrapper(object):
@@ -120,6 +121,26 @@ class XBeeWrapper(object):
         Hook for outgoing messages.
         """
         None
+
+    def toggle_port(self, address, port):
+        """
+        Sends a message to a remote radio to set a pin HIGH, pause for a moment, then set it LOW
+        """
+        if True:
+            if port[:3] == 'dio':
+                address = binascii.unhexlify(address)
+                number = int(port[3:])
+                command = 'P%d' % (number - 10) if number>9 else 'D%d' % number
+                self.xbee.remote_at(dest_addr_long = address, command = command, parameter = b'\x05', options=b'\x02')
+                self.log(logging.DEBUG, "Set %s@%s to HIGH" % (command, address))
+                time.sleep(.2)
+                self.xbee.remote_at(dest_addr_long = address, command = command, parameter = b'\x04', options=b'\x02')
+                self.log(logging.DEBUG, "Set %s@%s to LOW" % (command, address))
+                return True
+        #except:
+            #pass
+
+        return False
 
     def send_message(self, address, port, value, permanent = True):
         """
