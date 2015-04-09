@@ -1,0 +1,148 @@
+#!/usr/bin/python
+
+# -*- coding: utf-8 -*-
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
+#
+
+__app__ = "MQTT to SparkFun Push"
+__version__ = "0.4.20130708"
+__author__ = "Chad S. Lauritsen"
+__contact__ = "csl4jc@gmail.com"
+__copyright__ = "Copyright (C) 2015 Chad S. Lauritsen"
+
+import os
+import sys
+import time
+import logging
+
+from libs.daemon import Daemon
+from libs.processor import Processor
+from libs.config import Config
+import paho.mqtt.client as mqtt
+import urllib2
+
+class SfePush(Daemon):
+
+    NORTH_DOOR_TOPIC = '/home/garage/door/status/north'
+    SOUTH_DOOR_TOPIC = '/home/garage/door/status/south'
+    TEMP_TOPIC = '/home/garage/sensor/temp'
+
+    north_door = 'x'
+    south_door = 'x'
+    tempf = 'x'
+
+    mqttc = None
+    config = None
+    logger = None
+    stdout = None
+    stderr = None
+
+    def on_connect(self, mqttc, obj, flags, rc):
+        self.log(logging.DEBUG, "Connected to %s:%s" % (mqttc._host, mqttc._port))
+
+
+    def on_message(self, mqttc, obj, msg):
+        self.log(logging.DEBUG, msg.topic+" "+str(msg.qos)+" "+str(msg.payload))
+        if msg.topic == self.NORTH_DOOR_TOPIC:
+            self.north_door = msg.payload
+        if msg.topic == self.SOUTH_DOOR_TOPIC:
+            self.south_door = msg.payload
+        if msg.topic == self.TEMP_TOPIC:
+            self.tempf = msg.payload
+
+        if self.north_door != 'x' and self.south_door != 'x' and self.tempf != 'x':
+            pubkey = self.config.get('sparkfun', 'public_key', None)
+            privkey = self.config.get('sparkfun', 'private_key', None)
+            post_url = 'http://data.sparkfun.com/input/%s?private_key=%s&north_door=%s&south_door=%s&tempf=%s' % (pubkey, privkey, self.north_door, self.south_door, self.tempf)
+            u = urllib2.urlopen(post_url)
+            self.log(logging.DEBUG, 'URL status %d' % u.getcode())
+            self.north_door = 'x'
+            self.south_door = 'x'
+            self.tempf = 'x'
+        else:
+            self.log(logging.DEBUG, 'nd %s sd %s tmpf %s' % (self.north_door, self.south_door, self.tempf))
+
+    def on_publish(self, mqttc, obj, mid):
+        self.log(logging.INFO, "mid: "+str(mid))
+
+    def on_subscribe(self, mqttc, obj, mid, granted_qos):
+        self.log(logging.INFO, "Subscribed: "+str(mid)+" "+str(granted_qos))
+
+    def on_log(self, mqttc, obj, level, string):
+        self.log(logging.INFO, string)
+
+    def reload(self):
+        pass
+
+
+    def run(self):
+        self.log(logging.INFO, 'running')
+        # If you want to use a specific client id, use
+        # mqttc = mqtt.Client("client-id")
+        # but note that the client id must be unique on the broker. Leaving the client
+        # id parameter empty will generate a random id for you.
+        self.mqttc = mqtt.Client()
+        self.mqttc.on_message = self.on_message
+        self.mqttc.on_connect = self.on_connect
+        self.mqttc.on_publish = self.on_publish
+        self.mqttc.on_subscribe = self.on_subscribe
+        # Uncomment to enable debug messages
+        #mqttc.on_log = on_log
+        username = self.config.get('mqtt', 'username', None)
+        password = self.config.get('mqtt', 'password', None)
+        host = self.config.get('mqtt', 'host', 'localhost')
+        port = self.config.get('mqtt', 'port', 1883)
+        self.mqttc.username_pw_set(username, password)
+        self.mqttc.connect(host, int(port), 60)
+        #mqttc.subscribe("$SYS/broker/version", 0)
+        self.mqttc.subscribe("/home/#", 0)
+        self.mqttc.subscribe("/service/#", 0)
+
+        rc = 0
+        while rc == 0:
+            rc = self.mqttc.loop()
+
+        self.log(logging.DEBUG, "rc: "+str(rc))
+
+    def log(self, level, message):
+        if self.logger:
+            self.logger.log(level, message)
+
+if "__main__" == __name__:
+
+    def resolve_path(path):
+        return path if path[0] == '/' else os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
+
+    config_file = resolve_path('config/sfe_push.yaml');
+    config = Config(config_file)
+
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
+    logger.setLevel(config.get('general', 'logging_level', logging.DEBUG))
+    logger.addHandler(handler)
+
+
+    if len(sys.argv) == 2:
+
+        me = SfePush(resolve_path(config.get('general', 'pidfile', '/tmp/sfe_push.pid')))
+        me.config = config
+        me.logger = logger
+        me.stdout = me.stderr = resolve_path(config.get('general', 'stdout', '/dev/null'))
+        if 'start' == sys.argv[1]:
+            me.start()
+        elif 'stop' == sys.argv[1]:
+            me.stop()
+        elif 'restart' == sys.argv[1]:
+            me.restart()
+        elif 'reload' == sys.argv[1]:
+            me.reload()
+        else:
+            print "Unknown command"
+            sys.exit(2)
+        sys.exit(0)
+    else:
+        print "usage: %s start|stop|restart" % sys.argv[0]
+        sys.exit(2)

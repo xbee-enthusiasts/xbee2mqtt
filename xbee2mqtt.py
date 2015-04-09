@@ -105,7 +105,8 @@ class Xbee2MQTT(Daemon):
                 try:
                     sleep_interval = .25
                     retval = self.xbee.send_message(address, port, 1, False)
-                    self.log(logging.DEBUG, "toggle step 1, xbee.send_message retval %s, sleeping %f secs"  % retval, sleep_interval)
+                    #self.log(logging.DEBUG, "toggle step 1, xbee.send_message retval %s, sleeping %f secs"  % retval, sleep_interval)
+                    self.log(logging.DEBUG, "toggle step 1, xbee.send_message retval %s"  % retval)
                     time.sleep(sleep_interval)
                     retval = self.xbee.send_message(address, port, 0, False)
                     self.log(logging.DEBUG, "toggle step 2, xbee.send_message retval %s"  % retval)
