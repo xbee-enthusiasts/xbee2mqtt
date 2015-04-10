@@ -1,6 +1,6 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4 syntax=on
 
 #   Xbee to MQTT gateway
 #   Copyright (C) 2012-2013 by Xose Pérez
@@ -104,9 +104,9 @@ class Xbee2MQTT(Daemon):
                 self.log(logging.INFO, "Toggling radio %s port %s" % (address, port))
                 try:
                     self.log(logging.DEBUG, "Toggling port %s on radio %s"  % (port, address))
-                    retval = self.toggle_port(address, port)
+                    retval = self.xbee.toggle_port(address, port)
                 except Exception as e:
-                    self.log(logging.ERROR, "Error while sending message (%e)" % e)
+                    self.log(logging.ERROR, "Error while sending message (%s)" % e)
 
 
     def xbee_on_message(self, address, port, value):

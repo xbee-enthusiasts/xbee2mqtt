@@ -126,19 +126,19 @@ class XBeeWrapper(object):
         """
         Sends a message to a remote radio to set a pin HIGH, pause for a moment, then set it LOW
         """
-        if True:
-            if port[:3] == 'dio':
-                address = binascii.unhexlify(address)
-                number = int(port[3:])
-                command = 'P%d' % (number - 10) if number>9 else 'D%d' % number
-                self.xbee.remote_at(dest_addr_long = address, command = command, parameter = b'\x05', options=b'\x02')
-                self.log(logging.DEBUG, "Set %s@%s to HIGH" % (command, address))
-                time.sleep(.2)
-                self.xbee.remote_at(dest_addr_long = address, command = command, parameter = b'\x04', options=b'\x02')
-                self.log(logging.DEBUG, "Set %s@%s to LOW" % (command, address))
-                return True
-        #except:
-            #pass
+        txt_addr = address
+        self.log(logging.DEBUG, "in toggle_port %s@%s" % (port, address))
+        if port[:3] == 'dio':
+            address = binascii.unhexlify(address)
+            number = int(port[4:])
+            command = 'P%d' % (number - 10) if number>9 else 'D%d' % number
+            self.log(logging.DEBUG, "toggle_port, command: %s" % (command))
+            self.xbee.remote_at(dest_addr_long = address, command = command, parameter = b'\x05', options=b'\x02')
+            self.log(logging.DEBUG, "Set %s@%s to HIGH" % (command, txt_addr))
+            time.sleep(.2)
+            self.xbee.remote_at(dest_addr_long = address, command = command, parameter = b'\x04', options=b'\x02')
+            self.log(logging.DEBUG, "Set %s@%s to LOW" % (command, txt_addr))
+            return True
 
         return False
 
