@@ -14,10 +14,13 @@ import os
 import sys
 import time
 import logging
+import dbm
 
+from datetime import datetime
 from libs.daemon import Daemon
 from libs.processor import Processor
 from libs.config import Config
+from twython import Twython
 import paho.mqtt.client as mqtt
 import urllib2
 
@@ -31,11 +34,77 @@ class SfePush(Daemon):
     south_door = 'x'
     tempf = 'x'
 
+    db = None
     mqttc = None
     config = None
     logger = None
     stdout = None
     stderr = None
+
+    host = None
+    port = None
+    username = None
+    password = None
+
+    consumer_key = None 
+    consumer_secret = None 
+    access_key = None 
+    access_secret = None 
+
+    config_file = None
+
+    formatter = None
+    handler = None
+
+    twapi = None
+
+    def __init__(self, pidfile, stdin="/dev/null", stdout='/dev/null', stderr='/dev/null'):
+        #super(Daemon, self).__init__(pidfile, stdin, stdout, stderr)
+        Daemon.__init__(self, pidfile, stdin, stdout, stderr)
+
+        def resolve_path(path):
+            return path if path[0] == '/' else os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
+
+        self.config_file = resolve_path('config/sfe_push.yaml');
+        self.config = Config(config_file)
+
+        self.handler = logging.StreamHandler()
+        self.formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        self.handler.setFormatter(self.formatter)
+
+        self.logger = logging.getLogger()
+        self.logger.setLevel(config.get('general', 'logging_level', logging.DEBUG))
+        self.logger.addHandler(self.handler)
+
+        # If you want to use a specific client id, use
+        # mqttc = mqtt.Client("client-id")
+        # but note that the client id must be unique on the broker. Leaving the client
+        # id parameter empty will generate a random id for you.
+        self.mqttc = mqtt.Client()
+        self.mqttc.on_message = self.on_message
+        self.mqttc.on_connect = self.on_connect
+        self.mqttc.on_publish = self.on_publish
+        self.mqttc.on_subscribe = self.on_subscribe
+        # Uncomment to enable debug messages
+        #mqttc.on_log = on_log
+        self.username = self.config.get('mqtt', 'username', None)
+        self.password = self.config.get('mqtt', 'password', None)
+        self.host = self.config.get('mqtt', 'host', 'localhost')
+        self.port = self.config.get('mqtt', 'port', 1883)
+
+
+
+        cons_key = config.get('twitter', 'consumer_key', None)
+        cons_sec = config.get('twitter', 'consumer_secret', None)
+        acc_key = config.get('twitter', 'access_key', None)
+        acc_sec = config.get('twitter', 'access_secret', None)
+        self.twapi = Twython(cons_key, cons_sec, acc_key, acc_sec) 
+        self.log(logging.DEBUG, 'Initialized Twython')
+
+    def stop(self):
+        """ Shutdown the external resources and close the db """
+        self.mqttc.disconnect() 
+        Daemon.stop(self)
 
     def on_connect(self, mqttc, obj, flags, rc):
         self.log(logging.DEBUG, "Connected to %s:%s" % (mqttc._host, mqttc._port))
@@ -62,6 +131,16 @@ class SfePush(Daemon):
         else:
             self.log(logging.DEBUG, 'nd %s sd %s tmpf %s' % (self.north_door, self.south_door, self.tempf))
 
+        if self.north_door != 'x' and ('north_door' not in self.db.keys() or self.north_door != self.db['north_door']):
+            #self.twapi.update_status(status='%s North door %s!' % (str(datetime.now()), self.north_door))
+            self.twapi.send_direct_message(screen_name='cslauritsen', text='%s North door %s!' % (str(datetime.now()), self.north_door))
+            self.db['north_door'] = self.north_door
+
+        if self.south_door != 'x' and ('south_door' not in self.db.keys() or self.south_door != self.db['south_door']):
+            #self.twapi.update_status(status='%s South door %s!' % (str(datetime.now()), self.south_door))
+            self.twapi.send_direct_message(screen_name='cslauritsen', text='%s South door %s!' % (str(datetime.now()), self.south_door))
+            self.db['south_door'] = self.south_door
+
     def on_publish(self, mqttc, obj, mid):
         self.log(logging.INFO, "mid: "+str(mid))
 
@@ -74,63 +153,47 @@ class SfePush(Daemon):
     def reload(self):
         pass
 
-
     def run(self):
+        self.db = dbm.open(resolve_path('/tmp/datahist'), 'c')
         self.log(logging.INFO, 'running')
-        # If you want to use a specific client id, use
-        # mqttc = mqtt.Client("client-id")
-        # but note that the client id must be unique on the broker. Leaving the client
-        # id parameter empty will generate a random id for you.
-        self.mqttc = mqtt.Client()
-        self.mqttc.on_message = self.on_message
-        self.mqttc.on_connect = self.on_connect
-        self.mqttc.on_publish = self.on_publish
-        self.mqttc.on_subscribe = self.on_subscribe
-        # Uncomment to enable debug messages
-        #mqttc.on_log = on_log
-        username = self.config.get('mqtt', 'username', None)
-        password = self.config.get('mqtt', 'password', None)
-        host = self.config.get('mqtt', 'host', 'localhost')
-        port = self.config.get('mqtt', 'port', 1883)
-        self.mqttc.username_pw_set(username, password)
-        self.mqttc.connect(host, int(port), 60)
+
+        self.mqttc.username_pw_set(self.username, self.password)
+        self.log(logging.DEBUG, 'Connecting to MQTT broker %s:%d' % (self.host,self.port))
+        self.mqttc.connect(self.host, int(self.port), 60)
         #mqttc.subscribe("$SYS/broker/version", 0)
         self.mqttc.subscribe("/home/#", 0)
         self.mqttc.subscribe("/service/#", 0)
 
+        i = 0
         rc = 0
-        while rc == 0:
-            rc = self.mqttc.loop()
+        while i < 9:
+            while rc == 0:
+                rc = self.mqttc.loop()
+            i = i + 1
+            self.log(logging.DEBUG, "rc: "+str(rc))
 
-        self.log(logging.DEBUG, "rc: "+str(rc))
+        self.db.close()
+
 
     def log(self, level, message):
         if self.logger:
             self.logger.log(level, message)
 
-if "__main__" == __name__:
-
     def resolve_path(path):
         return path if path[0] == '/' else os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
 
-    config_file = resolve_path('config/sfe_push.yaml');
-    config = Config(config_file)
-
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-
-    logger = logging.getLogger()
-    logger.setLevel(config.get('general', 'logging_level', logging.DEBUG))
-    logger.addHandler(handler)
-
-
+if "__main__" == __name__:
     if len(sys.argv) == 2:
+        def resolve_path(path):
+            return path if path[0] == '/' else os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
+
+        config_file = resolve_path('config/sfe_push.yaml');
+        config = Config(config_file)
 
         me = SfePush(resolve_path(config.get('general', 'pidfile', '/tmp/sfe_push.pid')))
         me.config = config
-        me.logger = logger
         me.stdout = me.stderr = resolve_path(config.get('general', 'stdout', '/dev/null'))
+
         if 'start' == sys.argv[1]:
             me.start()
         elif 'stop' == sys.argv[1]:
