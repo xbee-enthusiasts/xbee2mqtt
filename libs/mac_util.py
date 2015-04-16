@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from Crypto.Hash import MD5
 from Crypto.Cipher import AES
 from Crypto import Random
 import binascii
@@ -11,16 +12,9 @@ class MACUtil:
     key = None
     def __init__(self, key):
         self.rndfile = Random.new()
-        self.key = key
-
-        if len(self.key) > 16:
-            while len(self.key) < 32:
-                 self.key += ' '
-            if len(self.key) > 32:
-                self.key = self.key[0:32]
-        else:
-            while len(self.key) < 16:
-                 self.key += ' '
+        md = MD5.new()
+        md.update(key)
+        self.key = md.digest()
 
 
     def create_mac(self):
