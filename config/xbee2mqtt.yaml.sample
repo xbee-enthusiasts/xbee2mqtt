@@ -50,3 +50,8 @@ processor:
                 1: 'Closed'
                 0: 'Open'
 
+authentication:
+        topic-pattern: *control*
+        mac-key: abc123
+
+

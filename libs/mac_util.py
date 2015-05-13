@@ -1,13 +1,20 @@
 #!/usr/bin/python
 
+__author__ = "Chad S. Lauritsen"
+__contact__ = "csl4jc@gmail.com"
+__copyright__ = "Copyright (C) 2015 Chad S. Lauritsen"
+__license__ = 'GPL v3'
+
 from Crypto.Hash import MD5
 from Crypto.Cipher import AES
 from Crypto import Random
 import binascii
 import time
 
-
 class MACUtil:
+    """
+      Helper class to perform time-based authentication of cryptographically generated messages using a shared secret
+    """
     rndfile = None
     key = None
     def __init__(self, key):

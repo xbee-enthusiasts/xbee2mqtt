@@ -26,6 +26,7 @@ __copyright__ = "Copyright (C) 2012-2013 Xose Pérez"
 __license__ = 'GPL v3'
 
 import os
+import re
 import sys
 import time
 import logging
@@ -52,6 +53,8 @@ class Xbee2MQTT(Daemon):
     mqtt = None
     processor = None
     config_file = None
+    mac_util = None
+
 
     _routes = {}
     _actions = {}
@@ -69,6 +72,11 @@ class Xbee2MQTT(Daemon):
                 self._actions['%s/set' % topic] = (address, port)
                 self._actions['%s/toggle' % topic] = (address, port)
         self.log(logging.DEBUG, "Routes: %s" % self._routes)
+        mac_key = config.get('authentication', 'mac-key', None)
+        if mac_key:
+            mac_util = MACUtil(mac_key)
+        else:
+            mac_util = None
 
     def log(self, level, message):
         if self.logger:
@@ -89,6 +97,14 @@ class Xbee2MQTT(Daemon):
         """
 
         self.log(logging.DEBUG, "Message received from MQTT broker: %s %s" % (topic, message))
+        mac_required_pattern = config.get('authentication', 'topic-pattern', None);
+        if mac_util and mac_required_pattern:
+            if re.search(mac_required_pattern, topic):
+                self.log(logging.DEBUG, "Checking MAC message %s from %s" % (message, topic))
+                if not mac_util.authenticate_mac(message):
+                    self.log(logging.ERROR, "MAC message %s failed authentication " % (message))
+                    return
+                
 
         data = self._actions.get(topic, None)
         if data:
