@@ -22,7 +22,6 @@ __contact__ = "xose.perez@gmail.com"
 __copyright__ = "Copyright (C) 2013 Xose Pérez"
 __license__ = 'GPL v3'
 
-#from mosquitto import Mosquitto
 import paho.mqtt.client as paho
 import ctypes
 import time

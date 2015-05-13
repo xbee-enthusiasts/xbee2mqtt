@@ -1,6 +1,6 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4 syntax=on
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 
 #   Xbee to MQTT gateway
 #   Copyright (C) 2012-2013 by Xose Pérez
