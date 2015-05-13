@@ -97,9 +97,9 @@ class Xbee2MQTT(Daemon):
         """
 
         self.log(logging.DEBUG, "Message received from MQTT broker: %s %s" % (topic, message))
-        mac_required_pattern = config.get('authentication', 'topic-pattern', None);
-        if mac_util and mac_required_pattern:
-            if re.search(mac_required_pattern, topic):
+        mac_required_regex = config.get('authentication', 'topic-regex', None);
+        if mac_util and mac_required_regex:
+            if re.search(mac_required_regex, topic):
                 self.log(logging.DEBUG, "Checking MAC message %s from %s" % (message, topic))
                 if not mac_util.authenticate_mac(message):
                     self.log(logging.ERROR, "MAC message %s failed authentication " % (message))

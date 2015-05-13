@@ -51,7 +51,7 @@ processor:
                 0: 'Open'
 
 authentication:
-        topic-pattern: *control*
+        topic-regex: control
         mac-key: abc123
 
 
