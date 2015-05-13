@@ -1,3 +1,5 @@
+Following README.md is the original in the project I forked from Xose Perez
+
 # xbee2mqtt
 
 This daemon will monitor a coordinator XBee connected to a serial port of the computer for incoming messages.
